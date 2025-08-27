@@ -1,0 +1,62 @@
+name: CI Meson
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  build:
+    name: Build and Test on ${{ matrix.os }} using ${{ matrix.compiler }} (Meson ${{ matrix.meson_version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        meson_version: ["1.3.0"]
+        compiler: [g++-14, clang++]
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv tool install --with ninja meson==${{ matrix.meson_version }}
+
+      - name: Install compiler
+        run: |
+          sudo apt update
+          if [ "${{ matrix.compiler }}" = "clang++" ]; then
+            sudo apt install -y clang
+          else
+            sudo apt install -y ${{ matrix.compiler }}
+          fi
+
+      - name: Configure project
+        run: meson setup build
+        env:
+          CXX: ${{ matrix.compiler }}
+
+      - name: Run tests
+        run: meson test --verbose -C build
+
+      - name: Upload test log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ${{ matrix.os }}_${{ matrix.compiler }}_Meson_TestLog
+          path: build/meson-logs/testlog.txt
