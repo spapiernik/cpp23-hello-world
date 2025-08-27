@@ -1,0 +1,59 @@
+name: CI Meson
+
+on:
+  push:
+    paths:
+      - "**.hpp"
+      - "**.cpp"
+      - "meson.build"
+      - "meson.options"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**.hpp"
+      - "**.cpp"
+      - "meson.build"
+      - "meson.options"
+
+jobs:
+  build:
+    name: Build and Test on ${{ matrix.os }} using ${{ matrix.compiler }} (Meson ${{ matrix.meson_version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        meson_version: ["1.3.0"]
+        compiler: [g++, clang++, cl]
+        exclude:
+          - os: ubuntu-latest
+            compiler: cl
+          - os: windows-latest
+            compiler: g++
+          - os: windows-latest
+            compiler: clang++
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+      - name: Install Meson
+        run: pipx install meson==${{ matrix.meson_version }}
+      - name: Install compiler
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          if [ "${{ matrix.compiler }}" = "clang++" ]; then
+            sudo apt install -y clang
+          else
+            sudo apt install -y g++
+          fi
+      - name: Configure project
+        run: meson setup build
+        env:
+          CXX: ${{ matrix.compiler }}
+      - name: Run tests
+        run: meson test --verbose -C build
+      - name: Upload test log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ${{ matrix.os }}_${{ matrix.compiler }}_Meson_TestLog
+          path: build/meson-logs/testlog.txt
