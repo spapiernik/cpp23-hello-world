@@ -31,6 +31,6 @@ else
   )
 endif
 
-exe = executable('main', 'main.cpp', install: true, link_args: link_args)
+exe = executable('hello', 'main.cpp', install: true, link_args: link_args)
 
-test('main', exe)
+test('hello', exe)
